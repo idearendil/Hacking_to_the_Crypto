@@ -16,4 +16,5 @@ print(len(tickers_lst))
 
 for ticker in tqdm(tickers_lst):
     df = pyupbit.get_ohlcv(ticker, count=350000, interval="minute15", to="20250822")
-    df.to_csv(f"{folder_name}/{ticker}.csv", index=False, encoding="utf-8-sig")
+    if df is not None:
+        df.to_csv(f"{folder_name}/{ticker}.csv", index=False, encoding="utf-8-sig")
