@@ -5,8 +5,8 @@ import ta
 from sklearn.preprocessing import StandardScaler
 import numpy as np
 
-INPUT_DIR = "data_15min_350000"
-OUTPUT_DIR = "preprocessed_data_15min_350000"
+INPUT_DIR = "data_min15_350000"
+OUTPUT_DIR = "preprocessed_data_min15_350000"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 CANDLES_PER_DAY = 96
