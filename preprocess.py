@@ -164,8 +164,8 @@ for file_name in tqdm(file_list, desc="Processing coins"):
             df_ind[k] = v
 
     # CSV를 불러온 df 기준
-    # 1행씩 과거로 갈수록 시간 감소, 마지막 행이 2025-08-21 24:00
-    END_TIME = pd.Timestamp("2025-08-21 24:00:00")  # 맨 마지막 행 기준
+    # 1행씩 과거로 갈수록 시간 감소, 마지막 행이 2025-08-21 23:45
+    END_TIME = pd.Timestamp("2025-08-21 23:45:00")  # 맨 마지막 행 기준
     INTERVAL_MIN = 15  # 15분 간격
 
     n_rows = len(df)
