@@ -8,6 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 import csv
 import matplotlib.pyplot as plt
 
+LOG_FOLDER = 'train1'
 
 # -----------------------------
 # 1. Dataset 정의
@@ -79,146 +80,156 @@ def selective_loss(y_hat, s, y, c0=0.5, lam=64.0, eps=1e-8):
     loss = sel_risk + lam * penalty
     return loss, sel_risk.detach(), coverage.detach()
 
-# -----------------------------
-# 4. 데이터 준비
-# -----------------------------
 
-folder = "preprocessed_data_min15_350000"
-all_files = sorted(glob.glob(os.path.join(folder, "*.csv")))
+if __name__ == "__main__"
+    # -----------------------------
+    # 4. 데이터 준비
+    # -----------------------------
 
-# 파일 단위로 split (최근 파일이 val)
-num_train = int(len(all_files) * 0.8)
-train_files = all_files[:num_train]
-val_files = all_files[num_train:]
+    folder = "G:/preprocessed_data_min15_350000"
+    all_files = sorted(glob.glob(os.path.join(folder, "*.csv")))
 
-# 데이터셋
-train_dataset = CryptoDataset(all_files, seq_len=96, train=True, train_ratio=0.8)
-val_dataset   = CryptoDataset(all_files, seq_len=96, train=False, train_ratio=0.8)
+    # 파일 단위로 split (최근 파일이 val)
+    num_train = int(len(all_files) * 0.8)
+    train_files = all_files[:num_train]
+    val_files = all_files[num_train:]
 
-train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
-val_loader   = DataLoader(val_dataset, batch_size=64, shuffle=False)
+    # 데이터셋
+    train_dataset = CryptoDataset(all_files, seq_len=96, train=True, train_ratio=0.8)
+    val_dataset   = CryptoDataset(all_files, seq_len=96, train=False, train_ratio=0.8)
 
-input_size = train_dataset.data.shape[2]  # feature 수
+    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=4)
+    val_loader   = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=4)
 
-# -----------------------------
-# 5. 학습 준비
-# -----------------------------
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = SelectiveLSTM(input_size=input_size).to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-num_epochs = 100
-
-# 학습 시작 전에 기록용 리스트 초기화
-history = {
-    "epoch": [],
-    "train_loss": [],
-    "val_loss": [],
-    "train_risk": [],
-    "val_risk": [],
-    "train_cov": [],
-    "val_cov": []
-}
-
-csv_file = "training_history.csv"
-
-# -----------------------------
-# 6. 학습 loop
-# -----------------------------
-for epoch in range(num_epochs):
-    model.train()
-    total_loss = 0
-    total_risk = 0
-    total_cov = 0
-    for x_batch, y_batch in train_loader:
-        x_batch = x_batch.to(device)
-        y_batch = y_batch.to(device)
-        optimizer.zero_grad()
-        y_hat, s = model(x_batch)
-        loss, sel_risk, coverage = selective_loss(y_hat, s, y_batch)
-        loss.backward()
-        optimizer.step()
-
-        total_loss += loss.item() * x_batch.size(0)
-        total_risk += sel_risk.item() * x_batch.size(0)
-        total_cov += coverage.item() * x_batch.size(0)
-
-    n_samples = len(train_dataset)
-    train_loss_epoch = total_loss / n_samples
-    train_risk_epoch = total_risk / n_samples
-    train_cov_epoch = total_cov / n_samples
-
-    # Validation
-    model.eval()
-    val_loss_total = 0
-    val_risk_total = 0
-    val_cov_total = 0
-    with torch.no_grad():
-        for x_batch, y_batch in val_loader:
-            x_batch = x_batch.to(device)
-            y_batch = y_batch.to(device)
-            y_hat, s = model(x_batch)
-            loss, sel_risk, coverage = selective_loss(y_hat, s, y_batch)
-            val_loss_total += loss.item() * x_batch.size(0)
-            val_risk_total += sel_risk.item() * x_batch.size(0)
-            val_cov_total += coverage.item() * x_batch.size(0)
-
-    n_val = len(val_dataset)
-    val_loss_epoch = val_loss_total / n_val
-    val_risk_epoch = val_risk_total / n_val
-    val_cov_epoch = val_cov_total / n_val
-
-    # 화면 출력
-    print(f"Epoch {epoch+1}/{num_epochs} | "
-          f"Train Loss: {train_loss_epoch:.4f} | Train Risk: {train_risk_epoch:.4f} | Train Cov: {train_cov_epoch:.4f} | "
-          f"Val Loss: {val_loss_epoch:.4f} | Val Risk: {val_risk_epoch:.4f} | Val Cov: {val_cov_epoch:.4f}")
+    input_size = train_dataset.data.shape[2]  # feature 수
 
     # -----------------------------
-    # CSV 기록
-    history["epoch"].append(epoch+1)
-    history["train_loss"].append(train_loss_epoch)
-    history["val_loss"].append(val_loss_epoch)
-    history["train_risk"].append(train_risk_epoch)
-    history["val_risk"].append(val_risk_epoch)
-    history["train_cov"].append(train_cov_epoch)
-    history["val_cov"].append(val_cov_epoch)
+    # 5. 학습 준비
+    # -----------------------------
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = SelectiveLSTM(input_size=input_size).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    num_epochs = 100
 
-# CSV 저장
-with open(csv_file, "w", newline="") as f:
-    writer = csv.writer(f)
-    writer.writerow(history.keys())
-    writer.writerows(zip(*history.values()))
+    # 학습 시작 전에 기록용 리스트 초기화
+    history = {
+        "epoch": [],
+        "train_loss": [],
+        "val_loss": [],
+        "train_risk": [],
+        "val_risk": [],
+        "train_cov": [],
+        "val_cov": []
+    }
 
-print("학습 완료")
+    csv_file = "training_history.csv"
 
-# 1) Loss 그래프
-plt.figure()
-plt.plot(history["epoch"], history["train_loss"], label="train_loss")
-plt.plot(history["epoch"], history["val_loss"], label="val_loss")
-plt.xlabel("Epoch")
-plt.ylabel("Loss")
-plt.title("Train vs Val Loss")
-plt.legend()
-plt.savefig("loss_curve.png")
-plt.close()
+    os.makedirs(f'{LOG_FOLDER}', exist_ok=True)
+    best_val_risk = float('inf')  # 가장 낮은 val selective risk 기준
 
-# 2) Selective Risk 그래프
-plt.figure()
-plt.plot(history["epoch"], history["train_risk"], label="train_risk")
-plt.plot(history["epoch"], history["val_risk"], label="val_risk")
-plt.xlabel("Epoch")
-plt.ylabel("Selective Risk")
-plt.title("Train vs Val Selective Risk")
-plt.legend()
-plt.savefig("selective_risk_curve.png")
-plt.close()
+    # -----------------------------
+    # 6. 학습 loop
+    # -----------------------------
+    for epoch in range(num_epochs):
+        model.train()
+        total_loss = 0
+        total_risk = 0
+        total_cov = 0
+        for x_batch, y_batch in tqdm(train_loader):
+            x_batch = x_batch.to(device)
+            y_batch = y_batch.to(device)
+            optimizer.zero_grad()
+            y_hat, s = model(x_batch)
+            loss, sel_risk, coverage = selective_loss(y_hat, s, y_batch)
+            loss.backward()
+            optimizer.step()
 
-# 3) Coverage 그래프
-plt.figure()
-plt.plot(history["epoch"], history["train_cov"], label="train_coverage")
-plt.plot(history["epoch"], history["val_cov"], label="val_coverage")
-plt.xlabel("Epoch")
-plt.ylabel("Coverage")
-plt.title("Train vs Val Coverage")
-plt.legend()
-plt.savefig("coverage_curve.png")
-plt.close()
+            total_loss += loss.item() * x_batch.size(0)
+            total_risk += sel_risk.item() * x_batch.size(0)
+            total_cov += coverage.item() * x_batch.size(0)
+
+        n_samples = len(train_dataset)
+        train_loss_epoch = total_loss / n_samples
+        train_risk_epoch = total_risk / n_samples
+        train_cov_epoch = total_cov / n_samples
+
+        # Validation
+        model.eval()
+        val_loss_total = 0
+        val_risk_total = 0
+        val_cov_total = 0
+        with torch.no_grad():
+            for x_batch, y_batch in tqdm(val_loader):
+                x_batch = x_batch.to(device)
+                y_batch = y_batch.to(device)
+                y_hat, s = model(x_batch)
+                loss, sel_risk, coverage = selective_loss(y_hat, s, y_batch)
+                val_loss_total += loss.item() * x_batch.size(0)
+                val_risk_total += sel_risk.item() * x_batch.size(0)
+                val_cov_total += coverage.item() * x_batch.size(0)
+
+        n_val = len(val_dataset)
+        val_loss_epoch = val_loss_total / n_val
+        val_risk_epoch = val_risk_total / n_val
+        val_cov_epoch = val_cov_total / n_val
+
+        # 화면 출력
+        print(f"Epoch {epoch+1}/{num_epochs} | "
+            f"Train Loss: {train_loss_epoch:.4f} | Train Risk: {train_risk_epoch:.4f} | Train Cov: {train_cov_epoch:.4f} | "
+            f"Val Loss: {val_loss_epoch:.4f} | Val Risk: {val_risk_epoch:.4f} | Val Cov: {val_cov_epoch:.4f}")
+
+        # -----------------------------
+        # CSV 기록
+        history["epoch"].append(epoch+1)
+        history["train_loss"].append(train_loss_epoch)
+        history["val_loss"].append(val_loss_epoch)
+        history["train_risk"].append(train_risk_epoch)
+        history["val_risk"].append(val_risk_epoch)
+        history["train_cov"].append(train_cov_epoch)
+        history["val_cov"].append(val_cov_epoch)
+
+        if val_risk_epoch < best_val_risk:
+            best_val_risk = val_risk_epoch
+            torch.save(model.state_dict(), f"{LOG_FOLDER}/best.pth")
+            print(f"Best model saved at epoch {epoch+1} with val_risk {best_val_risk:.4f}")
+
+    # CSV 저장
+    with open(f'{LOG_FOLDER}/{csv_file}', "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(history.keys())
+        writer.writerows(zip(*history.values()))
+
+    print("학습 완료")
+
+    # 1) Loss 그래프
+    plt.figure()
+    plt.plot(history["epoch"], history["train_loss"], label="train_loss")
+    plt.plot(history["epoch"], history["val_loss"], label="val_loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title("Train vs Val Loss")
+    plt.legend()
+    plt.savefig(f"{LOG_FOLDER}/loss_curve.png")
+    plt.close()
+
+    # 2) Selective Risk 그래프
+    plt.figure()
+    plt.plot(history["epoch"], history["train_risk"], label="train_risk")
+    plt.plot(history["epoch"], history["val_risk"], label="val_risk")
+    plt.xlabel("Epoch")
+    plt.ylabel("Selective Risk")
+    plt.title("Train vs Val Selective Risk")
+    plt.legend()
+    plt.savefig(f"{LOG_FOLDER}/selective_risk_curve.png")
+    plt.close()
+
+    # 3) Coverage 그래프
+    plt.figure()
+    plt.plot(history["epoch"], history["train_cov"], label="train_coverage")
+    plt.plot(history["epoch"], history["val_cov"], label="val_coverage")
+    plt.xlabel("Epoch")
+    plt.ylabel("Coverage")
+    plt.title("Train vs Val Coverage")
+    plt.legend()
+    plt.savefig(f"{LOG_FOLDER}/coverage_curve.png")
+    plt.close()
