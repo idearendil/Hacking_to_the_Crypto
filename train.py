@@ -54,7 +54,7 @@ class CryptoDataset(Dataset):
                 self.data_x.append(x_tensor)
                 self.data_y.append(y_tensor)
 
-                self.samples.extend([(file_idx, idx) for idx in range(start, end - seq_len)])
+                self.samples.extend([(file_idx, idx) for idx in range(end - start - seq_len + 1)])
             with open(self.data_path, "wb") as f:   # wb = write binary
                 pickle.dump((self.data_x, self.data_y, self.samples), f)
         else:
@@ -252,7 +252,8 @@ if __name__ == "__main__":
         # 화면 출력
         print(f"Epoch {epoch+1}/{num_epochs} | "
             f"Train Loss: {train_loss_epoch:.4f} | Train Risk: {train_risk_epoch:.4f} | Train Cov: {train_cov_epoch:.4f} | "
-            f"Val Loss: {val_loss_epoch:.4f} | Val Risk: {val_risk_epoch:.4f} | Val Cov: {val_cov_epoch:.4f}")
+            f"Val Loss: {val_loss_epoch:.4f} | Val Risk: {val_risk_epoch:.4f} | Val Cov: {val_cov_epoch:.4f}"
+            f"Val Acc s03: {val_acc_s03} | Val Acc s05: {val_acc_s05} | Val Acc s06: {val_acc_s07}")
 
         # -----------------------------
         # CSV 기록
