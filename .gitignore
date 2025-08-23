@@ -1,3 +1,5 @@
 *.csv
+!preprocessed_data_day_3500*.csv
 *.pkl
 *.pth
+ag_models/
