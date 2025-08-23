@@ -18,8 +18,7 @@ FEATURE_NUM = 139
 # -----------------------------
 
 class CryptoDataset(Dataset):
-    def __init__(self, file_paths, seq_len=96, train=True, train_ratio=0.8, 
-                 load=False, samples_path="temp.pkl", processed_folder="processed_blocks"):
+    def __init__(self, file_paths, seq_len=96, train=True, train_ratio=0.8):
         """
         file_paths: CSV 파일 경로 리스트
         seq_len: LSTM 시퀀스 길이
@@ -30,84 +29,36 @@ class CryptoDataset(Dataset):
         processed_folder: seq_len 단위로 분할한 데이터 블록 저장 폴더 (겹치지 않게)
         """
         self.seq_len = seq_len
-        os.makedirs(processed_folder, exist_ok=True)
-        if train:
-            processed_folder = os.path.join(processed_folder, "train")
-        else:
-            processed_folder = os.path.join(processed_folder, "val")
-        os.makedirs(processed_folder, exist_ok=True)
-        self.processed_folder = processed_folder
+        self.samples = []
+        self.data_x = []
+        self.data_y = []
 
-        if load:
-            with open(samples_path, "rb") as f:
-                self.samples = pickle.load(f)
-            print(f"Loaded {len(self.samples)} samples from {samples_path}")
-        else:
-            self.samples = []  # (block_file, local_start_idx) 저장
-            for fp in tqdm(file_paths):
-                df = pd.read_csv(fp)
-                n_total = len(df)
-                split_idx = int(n_total * train_ratio)
-                if train:
-                    idx_range = range(0, split_idx)
-                else:
-                    idx_range = range(split_idx, n_total)
+        self.samples = []  # (block_file, local_start_idx) 저장
+        for file_idx, fp in tqdm(enumerate(file_paths)):
+            df = pd.read_csv(fp)
+            n_total = len(df)
+            split_idx = int(n_total * train_ratio)
+            if train:
+                start = 0
+                end = split_idx
+            else:
+                start = split_idx
+                end = n_total
 
-                # 1) 겹치지 않게 block 단위 저장
-                block_id = 0
-                for start in range(idx_range.start, idx_range.stop, seq_len):
-                    end = min(start + seq_len, idx_range.stop)
-                    block_df = df.iloc[start:end]
-                    x_tensor = torch.tensor(block_df.drop(columns=['label']).values, dtype=torch.float32)
-                    y_tensor = torch.tensor(block_df['label'].values, dtype=torch.float32)
-                    block = (x_tensor, y_tensor)  # block 단위
-                    block_file = os.path.join(processed_folder, f"{os.path.basename(fp)}_block{block_id}.pkl")
-                    with open(block_file, "wb") as f:
-                        pickle.dump(block, f)
-                    block_id += 1
+            df = df.iloc[start:end]
+            x_tensor = torch.tensor(df.drop(columns=['label']).values, dtype=torch.float32)
+            y_tensor = torch.tensor(df['label'].values, dtype=torch.float32)
+            self.data_x.append(x_tensor)
+            self.data_y.append(y_tensor)
 
-                # 2) 슬라이딩 윈도우 인덱스 저장
-                total_len = len(idx_range)
-                for i in range(total_len - seq_len):
-                    # 어떤 block에 속하는지 찾기
-                    block_idx = i // seq_len
-                    local_start = i % seq_len
-                    block_file = os.path.join(processed_folder, f"{os.path.basename(fp)}_block{block_idx}.pkl")
-                    self.samples.append((block_file, local_start))
-
-            # sample list 저장
-            with open(samples_path, "wb") as f:
-                pickle.dump(self.samples, f)
-            print(f"Saved {len(self.samples)} samples to {samples_path}")
+            self.samples.extend([(file_idx, idx) for idx in range(start, end - seq_len)])
 
     def __len__(self):
         return len(self.samples)
 
     def __getitem__(self, idx):
-        block_file, local_start = self.samples[idx]
-
-        # 현재 block 로드
-        with open(block_file, "rb") as f:
-            x_block, y_block = pickle.load(f)
-
-        # 만약 필요한 길이가 block을 넘어가면 → 다음 block도 불러오기
-        if local_start + self.seq_len > len(x_block):
-            # block 이름에서 block index 추출
-            base, block_name = os.path.split(block_file)
-            prefix, block_id = block_name.rsplit("_block", 1)
-            next_block_file = os.path.join(base, f"{prefix}_block{int(block_id[:-4])+1}.pkl")
-
-            with open(next_block_file, "rb") as f:
-                x_next, y_next = pickle.load(f)
-
-            # 두 block 이어붙이기
-            x_block = torch.cat([x_block, x_next], dim=0)
-            y_block = torch.cat([y_block, y_next], dim=0)
-
-        # 이제 슬라이싱
-        x = x_block[local_start:local_start+self.seq_len]
-        y = y_block[local_start+self.seq_len-1]
-        return x, y
+        file_idx, idx = self.samples[idx]
+        return self.data_x[file_idx][idx:idx+self.seq_len], self.data_y[file_idx][idx+self.seq_len-1]
         
 # -----------------------------
 # 2. Selective LSTM 모델 정의
