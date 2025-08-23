@@ -9,9 +9,11 @@ import csv
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import pickle
+import random
 
 LOG_FOLDER = 'train1'
 FEATURE_NUM = 139
+AUG_MULTP = 30
 
 # -----------------------------
 # 1. Dataset 정의
@@ -60,17 +62,17 @@ class CryptoDataset(Dataset):
                 self.data_x, self.data_y, self.samples = pickle.load(f)
 
     def __len__(self):
-        return len(self.samples)
+        return len(self.samples) // AUG_MULTP
 
     def __getitem__(self, idx):
-        file_idx, idx = self.samples[idx]
+        file_idx, idx = self.samples[idx * AUG_MULTP + random.randint(0, AUG_MULTP-1)]
         return self.data_x[file_idx][idx:idx+self.seq_len], self.data_y[file_idx][idx+self.seq_len-1]
         
 # -----------------------------
 # 2. Selective LSTM 모델 정의
 # -----------------------------
 class SelectiveLSTM(nn.Module):
-    def __init__(self, input_size, hidden_size=1024, num_layers=5):
+    def __init__(self, input_size, hidden_size=256, num_layers=4):
         super().__init__()
         self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size,
                             num_layers=num_layers, batch_first=True, bidirectional=False)
