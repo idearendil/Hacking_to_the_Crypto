@@ -222,6 +222,9 @@ for file_name in tqdm(file_list, desc="Processing coins"):
             labels[i] = 0
     df_ind['label'] = labels
 
+    df_ind.interpolate(method='linear', inplace=True)
+    df_ind.fillna(0, inplace=True)
+
     # 저장
     output_path = os.path.join(OUTPUT_DIR, file_name)
     df_ind.to_csv(output_path, index=False)
