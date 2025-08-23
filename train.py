@@ -18,7 +18,7 @@ FEATURE_NUM = 139
 # -----------------------------
 
 class CryptoDataset(Dataset):
-    def __init__(self, file_paths, seq_len=96, train=True, train_ratio=0.8):
+    def __init__(self, file_paths, seq_len=96, train=True, train_ratio=0.8, load=False):
         """
         file_paths: CSV 파일 경로 리스트
         seq_len: LSTM 시퀀스 길이
@@ -32,26 +32,32 @@ class CryptoDataset(Dataset):
         self.samples = []
         self.data_x = []
         self.data_y = []
+        self.data_path = 'train_set.pkl' if train else 'val_set.pkl'
 
-        self.samples = []  # (block_file, local_start_idx) 저장
-        for file_idx, fp in tqdm(enumerate(file_paths)):
-            df = pd.read_csv(fp)
-            n_total = len(df)
-            split_idx = int(n_total * train_ratio)
-            if train:
-                start = 0
-                end = split_idx
-            else:
-                start = split_idx
-                end = n_total
+        if not load:
+            for file_idx, fp in enumerate(tqdm(file_paths)):
+                df = pd.read_csv(fp)
+                n_total = len(df)
+                split_idx = int(n_total * train_ratio)
+                if train:
+                    start = 0
+                    end = split_idx
+                else:
+                    start = split_idx
+                    end = n_total
 
-            df = df.iloc[start:end]
-            x_tensor = torch.tensor(df.drop(columns=['label']).values, dtype=torch.float32)
-            y_tensor = torch.tensor(df['label'].values, dtype=torch.float32)
-            self.data_x.append(x_tensor)
-            self.data_y.append(y_tensor)
+                df = df.iloc[start:end]
+                x_tensor = torch.tensor(df.drop(columns=['label']).values, dtype=torch.float32)
+                y_tensor = torch.tensor(df['label'].values, dtype=torch.float32)
+                self.data_x.append(x_tensor)
+                self.data_y.append(y_tensor)
 
-            self.samples.extend([(file_idx, idx) for idx in range(start, end - seq_len)])
+                self.samples.extend([(file_idx, idx) for idx in range(start, end - seq_len)])
+            with open(self.data_path, "wb") as f:   # wb = write binary
+                pickle.dump((self.data_x, self.data_y, self.samples), f)
+        else:
+            with open(self.data_path, "rb") as f:   # rb = read binary
+                self.data_x, self.data_y, self.samples = pickle.load(f)
 
     def __len__(self):
         return len(self.samples)
@@ -64,7 +70,7 @@ class CryptoDataset(Dataset):
 # 2. Selective LSTM 모델 정의
 # -----------------------------
 class SelectiveLSTM(nn.Module):
-    def __init__(self, input_size, hidden_size=256, num_layers=4):
+    def __init__(self, input_size, hidden_size=1024, num_layers=5):
         super().__init__()
         self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size,
                             num_layers=num_layers, batch_first=True, bidirectional=False)
@@ -100,11 +106,11 @@ if __name__ == "__main__":
     all_files = sorted(glob.glob(os.path.join(folder, "*.csv")))
 
     # 데이터셋
-    train_dataset = CryptoDataset(all_files, seq_len=96, train=True, train_ratio=0.8, load=True, samples_path="train_set.pkl")
-    val_dataset   = CryptoDataset(all_files, seq_len=96, train=False, train_ratio=0.8, load=True, samples_path="val_set.pkl")
+    train_dataset = CryptoDataset(all_files, seq_len=96, train=True, train_ratio=0.8, load=True)
+    val_dataset   = CryptoDataset(all_files, seq_len=96, train=False, train_ratio=0.8, load=True)
 
-    train_loader = DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=6)
-    val_loader   = DataLoader(val_dataset, batch_size=128, shuffle=False, num_workers=6)
+    train_loader = DataLoader(train_dataset, batch_size=128, shuffle=True)
+    val_loader   = DataLoader(val_dataset, batch_size=128, shuffle=False)
 
     input_size = FEATURE_NUM  # feature 수
 
@@ -137,12 +143,22 @@ if __name__ == "__main__":
     # -----------------------------
     # 6. 학습 loop
     # -----------------------------
+    from collections import deque
+
+    # 최근 100개 batch 평균을 구하기 위한 deque
+    loss_window = deque(maxlen=1000)
+    risk_window = deque(maxlen=1000)
+    cov_window = deque(maxlen=1000)
+
     for epoch in range(num_epochs):
         model.train()
         total_loss = 0
         total_risk = 0
         total_cov = 0
-        for x_batch, y_batch in tqdm(train_loader):
+
+        pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}")
+
+        for x_batch, y_batch in pbar:
             x_batch = x_batch.to(device)
             y_batch = y_batch.to(device)
             optimizer.zero_grad()
@@ -151,9 +167,27 @@ if __name__ == "__main__":
             loss.backward()
             optimizer.step()
 
+            # 합산
             total_loss += loss.item() * x_batch.size(0)
             total_risk += sel_risk.item() * x_batch.size(0)
             total_cov += coverage.item() * x_batch.size(0)
+
+            # 최근 100개 window에 저장
+            loss_window.append(loss.item())
+            risk_window.append(sel_risk.item())
+            cov_window.append(coverage.item())
+
+            # 최근 100개 평균 계산
+            avg_loss = sum(loss_window) / len(loss_window)
+            avg_risk = sum(risk_window) / len(risk_window)
+            avg_cov = sum(cov_window) / len(cov_window)
+
+            # tqdm 표시 업데이트
+            pbar.set_postfix({
+                "avg_loss": f"{avg_loss:.4f}",
+                "avg_risk": f"{avg_risk:.4f}",
+                "avg_cov": f"{avg_cov:.4f}"
+            })
 
         n_samples = len(train_dataset)
         train_loss_epoch = total_loss / n_samples
