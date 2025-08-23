@@ -31,6 +31,11 @@ class CryptoDataset(Dataset):
         """
         self.seq_len = seq_len
         os.makedirs(processed_folder, exist_ok=True)
+        if train:
+            processed_folder = os.path.join(processed_folder, "train")
+        else:
+            processed_folder = os.path.join(processed_folder, "val")
+        os.makedirs(processed_folder, exist_ok=True)
         self.processed_folder = processed_folder
 
         if load:
@@ -140,15 +145,15 @@ if __name__ == "__main__":
     # 4. 데이터 준비
     # -----------------------------
 
-    folder = "preprocessed_data_min15_350000"
+    folder = "G:/preprocessed_data_min15_350000"
     all_files = sorted(glob.glob(os.path.join(folder, "*.csv")))
 
     # 데이터셋
     train_dataset = CryptoDataset(all_files, seq_len=96, train=True, train_ratio=0.8, load=True, samples_path="train_set.pkl")
     val_dataset   = CryptoDataset(all_files, seq_len=96, train=False, train_ratio=0.8, load=True, samples_path="val_set.pkl")
 
-    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=4)
-    val_loader   = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=4)
+    train_loader = DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=6)
+    val_loader   = DataLoader(val_dataset, batch_size=128, shuffle=False, num_workers=6)
 
     input_size = FEATURE_NUM  # feature 수
 
