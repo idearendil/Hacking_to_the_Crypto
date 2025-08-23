@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 import numpy as np
 
 INPUT_DIR = "data_min15_350000"
-OUTPUT_DIR = "preprocessed_data_min15_350000"
+OUTPUT_DIR = "G:/preprocessed_data_min15_350000"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 CANDLES_PER_DAY = 96
@@ -57,6 +57,9 @@ summary_map = summary_df.set_index("coin").to_dict(orient="index")
 for file_name in tqdm(file_list, desc="Processing coins"):
     file_path = os.path.join(INPUT_DIR, file_name)
     df = pd.read_csv(file_path)
+
+    if len(df) < 96 * 200:
+        continue
 
     # coin summary 가져오기
     coin_summary = summary_map[file_name]
