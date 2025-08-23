@@ -7,36 +7,52 @@ from torch import nn
 from torch.utils.data import Dataset, DataLoader
 import csv
 import matplotlib.pyplot as plt
+from tqdm import tqdm
+import pickle
 
 LOG_FOLDER = 'train1'
+FEATURE_NUM = 139
 
 # -----------------------------
 # 1. Dataset 정의
 # -----------------------------
+
 class CryptoDataset(Dataset):
-    def __init__(self, file_paths, seq_len=96, train=True, train_ratio=0.8):
+    def __init__(self, file_paths, seq_len=96, train=True, train_ratio=0.8, 
+                 load=False, samples_path="temp.pkl"):
         """
         file_paths: CSV 파일 경로 리스트
         seq_len: LSTM 시퀀스 길이
         train: True면 train set, False면 val set
         train_ratio: train/val 비율
+        load: True면 samples_path에서 pickle로 로드
+        samples_path: pickle 파일 경로
         """
         self.seq_len = seq_len
-        self.samples = []  # (file_path, start_idx) 튜플 저장
 
-        for fp in file_paths:
-            df = pd.read_csv(fp)
-            n_total = len(df)
-            split_idx = int(n_total * train_ratio)
+        if load:
+            with open(samples_path, "rb") as f:
+                self.samples = pickle.load(f)
+            print(f"Loaded {len(self.samples)} samples from {samples_path}")
+        else:
+            self.samples = []  # (file_path, start_idx) 튜플 저장
+            for fp in tqdm(file_paths):
+                df = pd.read_csv(fp)
+                n_total = len(df)
+                split_idx = int(n_total * train_ratio)
 
-            if train:
-                idx_range = range(0, split_idx)
-            else:
-                idx_range = range(split_idx, n_total)
+                if train:
+                    idx_range = range(0, split_idx)
+                else:
+                    idx_range = range(split_idx, n_total)
 
-            # sliding window index
-            for i in range(len(idx_range) - seq_len):
-                self.samples.append((fp, idx_range[i]))
+                # sliding window index
+                for i in range(len(idx_range) - seq_len):
+                    self.samples.append((fp, idx_range[i]))
+
+            with open(samples_path, "wb") as f:
+                pickle.dump(self.samples, f)
+            print(f"Saved {len(self.samples)} samples to {samples_path}")
 
     def __len__(self):
         return len(self.samples)
@@ -49,7 +65,7 @@ class CryptoDataset(Dataset):
         seq_x = x[start_idx:start_idx+self.seq_len]
         seq_y = y[start_idx+self.seq_len-1]  # 마지막 타임스텝의 label
         return torch.tensor(seq_x), torch.tensor(seq_y)
-
+    
 # -----------------------------
 # 2. Selective LSTM 모델 정의
 # -----------------------------
@@ -81,27 +97,22 @@ def selective_loss(y_hat, s, y, c0=0.5, lam=64.0, eps=1e-8):
     return loss, sel_risk.detach(), coverage.detach()
 
 
-if __name__ == "__main__"
+if __name__ == "__main__":
     # -----------------------------
     # 4. 데이터 준비
     # -----------------------------
 
-    folder = "G:/preprocessed_data_min15_350000"
+    folder = "preprocessed_data_min15_350000"
     all_files = sorted(glob.glob(os.path.join(folder, "*.csv")))
 
-    # 파일 단위로 split (최근 파일이 val)
-    num_train = int(len(all_files) * 0.8)
-    train_files = all_files[:num_train]
-    val_files = all_files[num_train:]
-
     # 데이터셋
-    train_dataset = CryptoDataset(all_files, seq_len=96, train=True, train_ratio=0.8)
-    val_dataset   = CryptoDataset(all_files, seq_len=96, train=False, train_ratio=0.8)
+    train_dataset = CryptoDataset(all_files, seq_len=96, train=True, train_ratio=0.8, load=True, samples_path="train_set.pkl")
+    val_dataset   = CryptoDataset(all_files, seq_len=96, train=False, train_ratio=0.8, load=True, samples_path="val_set.pkl")
 
     train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=4)
     val_loader   = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=4)
 
-    input_size = train_dataset.data.shape[2]  # feature 수
+    input_size = FEATURE_NUM  # feature 수
 
     # -----------------------------
     # 5. 학습 준비
