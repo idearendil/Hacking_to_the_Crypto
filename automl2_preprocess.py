@@ -19,7 +19,7 @@ def add_time_features_infer_dates(df: pd.DataFrame, last_date_str="2025-08-21 20
     last_date = pd.to_datetime(last_date_str)
     
     # 마지막 행부터 4시간 간격으로 역순 날짜 생성
-    dates = pd.date_range(end=last_date, periods=n, freq="4H")
+    dates = pd.date_range(end=last_date, periods=n, freq="4h")
     df["date"] = dates
 
     # 요일 / 월일 / 연중일 / 하루 시간(시)
