@@ -73,9 +73,16 @@ for i in tqdm(range(1, 361)):
         buy_price = None
 
     if holding_coin is None:
-        # 가장 높은 확률 코인 선택
-        best_coin = max(preds, key=preds.get)
-        if preds[best_coin] < 0.5:
+        # 가장 확률이 높으면서 거래량이 충분한 코인 선택
+        while True:
+            best_coin = max(preds, key=preds.get)
+            if preds[best_coin] < 0.65:
+                break
+            if prev_data[best_coin]["volume"] * prev_data[best_coin]["close"] < capital * 200:
+                preds[best_coin] = 0.0
+            else:
+                break
+        if preds[best_coin] < 0.65:
             continue
         buy_price = today_data[best_coin]["open"]
         holding_coin = best_coin

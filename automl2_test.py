@@ -42,11 +42,11 @@ if not LOAD_DATASET:
 
     train_df = pd.concat(train_list, ignore_index=True)
     test_df = pd.concat(test_list, ignore_index=True)
-    train_df.to_csv("preprocessed_data_hour4_21900_train.csv", index=False)
-    test_df.to_csv("preprocessed_data_hour4_21900_test.csv", index=False)    
+    train_df.to_csv("automl_data_hour4_21900_train.csv", index=False)
+    test_df.to_csv("automl_data_hour4_21900_test.csv", index=False)    
 else:
-    train_df = pd.read_csv("preprocessed_data_hour4_21900_train.csv")
-    test_df = pd.read_csv("preprocessed_data_hour4_21900_test.csv")
+    train_df = pd.read_csv("automl_data_hour4_21900_train.csv")
+    test_df = pd.read_csv("automl_data_hour4_21900_test.csv")
 
 predictor = TabularPredictor.load("hour4_models")
 

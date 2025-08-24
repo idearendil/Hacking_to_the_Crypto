@@ -1,6 +1,7 @@
 *.csv
 ag_models_balanced
 ag_models_accuracy
+hour4_models
 *.pkl
 *.pth
 *.png

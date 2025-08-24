@@ -47,6 +47,8 @@ else:
     train_df = pd.read_csv("automl_data_hour4_21900_train.csv")
     test_df = pd.read_csv("automl_data_hour4_21900_test.csv")
 
+print(f"train: {len(train_df)}, test: {len(test_df)}")
+
 # --------------------------------
 # 3. AutoGluon 학습
 # --------------------------------
