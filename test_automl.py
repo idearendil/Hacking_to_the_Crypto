@@ -48,7 +48,7 @@ else:
     train_df = pd.read_csv("preprocessed_data_day_3500_train.csv")
     test_df = pd.read_csv("preprocessed_data_day_3500_test.csv")
 
-predictor = TabularPredictor.load("ag_models")
+predictor = TabularPredictor.load("ag_models_balanced")
 
 preds = predictor.predict(test_df.head(10))
 print(preds)

@@ -66,10 +66,10 @@ def create_label(df: pd.DataFrame) -> pd.DataFrame:
     labels = []
     n = len(df)
     for i in range(n):
-        if i + 3 < n:
-            base_open = df.loc[i, "open"]
+        if i + 4 < n:
+            base_open = df.loc[i+1, "open"]
             label = 0
-            for j in range(i, i+3):
+            for j in range(i+1, i+4):
                 if df.loc[j, "low"] <= base_open * 0.99:
                     break
                 if df.loc[j, "high"] >= base_open * 1.02:

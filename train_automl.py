@@ -53,8 +53,8 @@ else:
 predictor = TabularPredictor(
     label=LABEL,
     problem_type="binary",
-    eval_metric="accuracy",
-    path="ag_models"
+    eval_metric="balanced_accuracy",
+    path="ag_models_balanced"
 ).fit(
     train_df,
     presets="extreme_quality",
