@@ -9,7 +9,6 @@ LABEL = "label"
 LOAD_DATASET = True
 TEST_RATIO = 0.2
 
-
 # --------------------------------
 # 1. 모든 CSV 불러와서 합치기
 # --------------------------------
@@ -42,23 +41,38 @@ if not LOAD_DATASET:
 
     train_df = pd.concat(train_list, ignore_index=True)
     test_df = pd.concat(test_list, ignore_index=True)
-    train_df.to_csv("preprocessed_data_day_3500_train.csv", index=False)
-    test_df.to_csv("preprocessed_data_day_3500_test.csv", index=False)    
+    train_df.to_csv("automl_data_day_3500_train.csv", index=False)
+    test_df.to_csv("automl_data_day_3500_test.csv", index=False)    
 else:
-    train_df = pd.read_csv("preprocessed_data_day_3500_train.csv")
-    test_df = pd.read_csv("preprocessed_data_day_3500_test.csv")
+    train_df = pd.read_csv("automl_data_day_3500_train.csv")
+    test_df = pd.read_csv("automl_data_day_3500_test.csv")
 
-predictor = TabularPredictor.load("ag_models_balanced")
+# --------------------------------
+# 3. AutoGluon 학습
+# --------------------------------
+predictor = TabularPredictor(
+    label=LABEL,
+    problem_type="binary",
+    eval_metric="balanced_accuracy",
+    path="ag_models_balanced"
+).fit(
+    train_df,
+    presets="extreme_quality",
+)
 
-preds = predictor.predict(test_df.head(10))
-print(preds)
+# --------------------------------
+# 4. 평가 & 결과 확인
+# --------------------------------
+performance = predictor.evaluate(test_df)
+print("성능:", performance)
 
-proba = predictor.predict_proba(test_df.head(10))
-print(proba)
+# 리더보드
+leaderboard = predictor.leaderboard(test_df, silent=True)
+print(leaderboard)
 
-print(test_df.head(10)[LABEL])
-
-
+# --------------------------------
+# 4-1. Precision-Recall Curve 저장
+# --------------------------------
 y_true = test_df[LABEL]
 y_proba = predictor.predict_proba(test_df)[1]  # positive 클래스 확률 (label=1일 때)
 
@@ -75,3 +89,12 @@ plt.grid(True)
 plt.tight_layout()
 plt.savefig("precision_recall_curve.png", dpi=300)
 plt.close()
+
+# --------------------------------
+# 5. 예측 사용 예시
+# --------------------------------
+preds = predictor.predict(test_df.head(10))
+print(preds)
+
+proba = predictor.predict_proba(test_df.head(10))
+print(proba)

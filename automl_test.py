@@ -9,6 +9,7 @@ LABEL = "label"
 LOAD_DATASET = True
 TEST_RATIO = 0.2
 
+
 # --------------------------------
 # 1. 모든 CSV 불러와서 합치기
 # --------------------------------
@@ -47,32 +48,17 @@ else:
     train_df = pd.read_csv("preprocessed_data_day_3500_train.csv")
     test_df = pd.read_csv("preprocessed_data_day_3500_test.csv")
 
-# --------------------------------
-# 3. AutoGluon 학습
-# --------------------------------
-predictor = TabularPredictor(
-    label=LABEL,
-    problem_type="binary",
-    eval_metric="balanced_accuracy",
-    path="ag_models_balanced"
-).fit(
-    train_df,
-    presets="extreme_quality",
-)
+predictor = TabularPredictor.load("ag_models_balanced")
 
-# --------------------------------
-# 4. 평가 & 결과 확인
-# --------------------------------
-performance = predictor.evaluate(test_df)
-print("성능:", performance)
+preds = predictor.predict(test_df.head(10))
+print(preds)
 
-# 리더보드
-leaderboard = predictor.leaderboard(test_df, silent=True)
-print(leaderboard)
+proba = predictor.predict_proba(test_df.head(10))
+print(proba)
 
-# --------------------------------
-# 4-1. Precision-Recall Curve 저장
-# --------------------------------
+print(test_df.head(10)[LABEL])
+
+
 y_true = test_df[LABEL]
 y_proba = predictor.predict_proba(test_df)[1]  # positive 클래스 확률 (label=1일 때)
 
@@ -87,14 +73,5 @@ plt.title("Precision-Recall Curve")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("precision_recall_curve.png", dpi=300)
+plt.savefig("automl_pr_curve.png", dpi=300)
 plt.close()
-
-# --------------------------------
-# 5. 예측 사용 예시
-# --------------------------------
-preds = predictor.predict(test_df.head(10))
-print(preds)
-
-proba = predictor.predict_proba(test_df.head(10))
-print(proba)
