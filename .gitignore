@@ -1,5 +1,5 @@
 *.csv
 !preprocessed_data_day_3500*.csv
+ag_models
 *.pkl
 *.pth
-ag_models/
