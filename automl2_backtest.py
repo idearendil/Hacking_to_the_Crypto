@@ -9,7 +9,7 @@ from agent1 import Agent1
 # 기본 설정
 # -----------------------------
 INPUT_DIR = "G:/preprocessed_data_hour4_21900"
-SEED_MONEY = 1000000
+SEED_MONEY = 10000000
 LABEL = "label"
 MODEL_PATH = "hour4_models"  # predictor 저장된 경로로 바꿔주세요
 
@@ -27,7 +27,7 @@ for file in os.listdir(INPUT_DIR):
         df = pd.read_csv(os.path.join(INPUT_DIR, file))
         if len(df) < 600:
             continue
-        df = df.tail(361).reset_index(drop=True)  # 마지막 60일 + 이전날 입력용 1개
+        df = df.tail(201).reset_index(drop=True)  # 마지막 60일 + 이전날 입력용 1개
         df['coin'] = coin
         coin_data[coin] = df
 
@@ -40,16 +40,18 @@ buy_price = None
 
 records = []  # 거래 기록 저장
 
-for i in tqdm(range(1, 361)):
+for i in tqdm(range(1, 201)):
     today_data = {c: df.iloc[i] for c, df in coin_data.items()}
     prev_data = {c: df.iloc[i - 1] for c, df in coin_data.items()}  # 모델 입력용 (전날)
 
     order_lst = agent.act(prev_data, capital, holding_coin, buy_price)
+    if order_lst is None:
+        continue
 
     for an_order in order_lst:
         if an_order['type'] == 'MARKET_SELL':
             sell_price = today_data[an_order['coin']]['open']
-            capital = capital * (sell_price / buy_price - 0.00139)
+            capital = capital * (sell_price / buy_price) * 0.9995
             records.append({
                 "date": i,
                 "action": "SELL",
@@ -61,7 +63,7 @@ for i in tqdm(range(1, 361)):
             buy_price = None
         elif an_order['type'] == 'MARKET_BUY':
             holding_coin = an_order['coin']
-            buy_price = today_data[an_order['coin']]['open']
+            buy_price = today_data[an_order['coin']]['open'] * 1.0005
             records.append({
                 "date": i,
                 "action": "BUY",
@@ -72,7 +74,7 @@ for i in tqdm(range(1, 361)):
         elif an_order['type'] == 'LIMIT_SELL_MIN':
             if today_data[an_order['coin']]['low'] <= an_order['price']:
                 sell_price = an_order['price']
-                capital = capital * (sell_price / buy_price - 0.00139)
+                capital = capital * (sell_price / buy_price) * 0.99861
                 records.append({
                     "date": i,
                     "action": "SELL",
@@ -85,7 +87,7 @@ for i in tqdm(range(1, 361)):
         elif an_order['type'] == 'LIMIT_SELL_MAX':
             if holding_coin is not None and today_data[an_order['coin']]['high'] >= an_order['price']:
                 sell_price = an_order['price']
-                capital = capital * (sell_price / buy_price - 0.00139)
+                capital = capital * (sell_price / buy_price) * 0.99861
                 records.append({
                     "date": i,
                     "action": "SELL",

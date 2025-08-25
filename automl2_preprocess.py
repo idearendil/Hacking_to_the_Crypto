@@ -68,22 +68,35 @@ def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def create_label(df: pd.DataFrame) -> pd.DataFrame:
-    labels = []
+    labels1 = []
+    labels2 = []
+    labels3 = []
     n = len(df)
     for i in range(n):
         if i + 7 < n:
             base_open = df.loc[i+1, "open"]
-            label = 0
+            label1 = 0
+            label2 = 0
+            label3 = 0
             for j in range(i+1, i+7):
                 if df.loc[j, "low"] <= base_open * 0.99:
                     break
                 if df.loc[j, "high"] >= base_open * 1.02:
-                    label = 1
-                    break
-            labels.append(label)
+                    label1 = 1
+                if df.loc[j, "high"] >= base_open * 1.03:
+                    label2 = 1
+                if df.loc[j, "high"] >= base_open * 1.04:
+                    label3 = 1
+            labels1.append(label1)
+            labels2.append(label2)
+            labels3.append(label3)
         else:
-            labels.append(np.nan)
-    df["label"] = labels
+            labels1.append(np.nan)
+            labels2.append(np.nan)
+            labels3.append(np.nan)
+    df["label1"] = labels1
+    df["label2"] = labels2
+    df["label3"] = labels3
     return df
 
 
